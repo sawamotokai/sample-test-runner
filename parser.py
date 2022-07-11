@@ -8,25 +8,31 @@ import sys
 import concurrent.futures
 import urllib.request
 from os.path import expanduser
-from colorama import init
-from colorama import Fore, Back, Style
+from colorama import Fore, Back, Style, init
+import inquirer
+from inquirer.themes import GreenPassion
 
 from utils import *
 from config import *
-
 
 #TODO organize import
 
 home = expanduser("~")
 PWD = os.getcwd()
 http = urllib3.PoolManager()
+init()
 
 class ParserFactory(object):
     @staticmethod
-    def get(website):
-        if website == "atcoder":
+    def get():
+        ac = "AtCoder"
+        cf = "CodeForces"
+        website = Ask.list_input(
+            message="Which contest website?",
+            choices=[ac,cf])
+        if website == ac:
             return AtCoderParser()
-        elif website == "codeforces":
+        elif website == cf:
             return CodeForcesParser()
         else:
             raise Exception("Ilegal Input")
@@ -36,12 +42,40 @@ class Parser(object):
         super().__init__()
 
     def parse(self):
-        pass
+        raise Exception("This method has to be overridden.")
 
 class AtCoderParser(Parser):
     def  __init__(self):
         super().__init__()
+
+    def parseProblem(self, problemChar):
+        problemURL = f"{self.contestURL}/{self.contest}{self.code}_{problemChar}"
+        print(problemURL)
+        print(
+            (Fore.WHITE + "parsing " + str(problemChar))
+            + (Fore.GREEN + "  [Success]  ")
+            + (Fore.WHITE + "")
+        )
+
     
+    def parse(self):
+        abc = "ABC"
+        arc = "ARC"
+        agc = "AGC"
+        self.contest = Ask.list_input(
+            message = "Which contest?",
+            choices=[abc, arc, agc]
+        ).lower()
+        self.code = Ask.text(message="Contest Code") 
+        self.contestURL = f"https://atcoder.jp/contests/{self.contest}{self.code}/tasks"
+
+        # TODO: 
+        numProblems = 8
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            for i in range(numProblems):
+                problemChar= chr(ord('a') + i)
+                executor.submit(self.parseProblem, problemChar)
+        pass
 
 class CodeForcesParser(Parser):
     def  __init__(self):
@@ -100,8 +134,7 @@ class CodeForcesParser(Parser):
 
 
     def parse(self):
-        self.code = int(input("Contest code XXX: "))
-
+        self.code = int(Ask.text(message="Contest Code"))
         url = codeForcesURL + str(self.code)
         http.request("Get", url)
         page = http.request("Get", url)
@@ -116,9 +149,7 @@ class CodeForcesParser(Parser):
         print("   Connected!\n")
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             future_to_url = {executor.submit(self.parseProblem, c) for c in ch}
-
          
 
-website = "codeforces"
-parser = ParserFactory.get(website)
+parser = ParserFactory.get()
 parser.parse()
