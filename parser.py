@@ -77,15 +77,17 @@ class AtCoderParser(Parser):
             self.contestName = code
         self.contestURL = f"https://atcoder.jp/contests/{self.contestName}/tasks"
         self.folderName = f"{rootPath}/{atCoder}/{contest.upper()}/{code}"
-        # TODO
-        numProblems = 5
-        # numProblems = self.getNumberOfProblems(self.contestURL)
+        numProblems = self.getNumberOfProblems(self.contestURL)
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             for i in range(numProblems):
                 problemChar= chr(ord('a') + i)
-                try:
+                try: # if enterprise contests, code is not integer
+                    # old contests have different problem IDs
                     if (contest == abc.lower() and int(code) < 20) or (contest == arc.lower() and int(code) < 35):
                         problemChar = i + 1
+                    # old ARC starts from problem c
+                    if contest == arc.lower() and int(code) <= 113 and int(code) >= 58:
+                        problemChar= chr(ord('a') + i + 2)
                 except:
                     pass
                 executor.submit(self.parseProblem, problemChar)
@@ -93,6 +95,12 @@ class AtCoderParser(Parser):
     def getNumberOfProblems(self, URL):
         page = http.request("Get", URL)
         soup = BeautifulSoup(page.data, features="lxml")
+        rows = soup.findAll("tr")
+        ln = len(rows)
+        if ln == 0:
+            raise Exception("Failed getting the number of problems")
+        return ln - 1 # subtract the title row
+
         
 
 class CodeForcesParser(Parser):
