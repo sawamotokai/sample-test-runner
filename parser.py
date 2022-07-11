@@ -28,7 +28,7 @@ class ParserFactory(object):
         ac = "AtCoder"
         cf = "CodeForces"
         website = Ask.list_input(
-            message="Which contest website?",
+            message="Which website?",
             choices=[ac,cf])
         if website == ac:
             return AtCoderParser()
@@ -50,7 +50,7 @@ class AtCoderParser(Parser):
         self.folderName = None
 
     def parseProblem(self, problemChar):
-        problemURL = f"{self.contestURL}/{self.contest}{self.code}_{problemChar}"
+        problemURL = f"{self.contestURL}/{self.contestName}_{problemChar}"
         print(problemURL)
         print(
             (Fore.WHITE + "parsing " + str(problemChar))
@@ -63,21 +63,37 @@ class AtCoderParser(Parser):
         abc = "ABC"
         arc = "ARC"
         agc = "AGC"
-        self.contest = Ask.list_input(
+        contest = Ask.list_input(
             message = "Which contest?",
             choices=[abc, arc, agc]
         ).lower()
-        self.code = Ask.text(message="Contest Code") 
-        self.contestURL = f"https://atcoder.jp/contests/{self.contest}{self.code}/tasks"
-        self.folderName = f"{rootPath}/{atCoder}/{self.code.upper()}/{self.code}"
-
-        # TODO: 
-        numProblems = 8
+        code = Ask.text(message="Contest Code") 
+        while len(code) < 3:
+            code = '0' + code
+        try:
+            int(code)
+            self.contestName = f"{contest}{code}"
+        except:
+            self.contestName = code
+        self.contestURL = f"https://atcoder.jp/contests/{self.contestName}/tasks"
+        self.folderName = f"{rootPath}/{atCoder}/{contest.upper()}/{code}"
+        # TODO
+        numProblems = 5
+        # numProblems = self.getNumberOfProblems(self.contestURL)
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             for i in range(numProblems):
                 problemChar= chr(ord('a') + i)
+                try:
+                    if (contest == abc.lower() and int(code) < 20) or (contest == arc.lower() and int(code) < 35):
+                        problemChar = i + 1
+                except:
+                    pass
                 executor.submit(self.parseProblem, problemChar)
-        pass
+
+    def getNumberOfProblems(self, URL):
+        page = http.request("Get", URL)
+        soup = BeautifulSoup(page.data, features="lxml")
+        
 
 class CodeForcesParser(Parser):
     def  __init__(self):
@@ -153,6 +169,7 @@ class CodeForcesParser(Parser):
         print(Fore.GREEN + "Connected!\n")
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             future_to_url = {executor.submit(self.parseProblem, c) for c in ch}
+        os.chdir(f"{self.folderName}/{self.code}")
          
 
 parser = ParserFactory.get()
