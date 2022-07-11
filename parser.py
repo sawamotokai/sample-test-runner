@@ -47,6 +47,7 @@ class Parser(object):
 class AtCoderParser(Parser):
     def  __init__(self):
         super().__init__()
+        self.folderName = None
 
     def parseProblem(self, problemChar):
         problemURL = f"{self.contestURL}/{self.contest}{self.code}_{problemChar}"
@@ -68,6 +69,7 @@ class AtCoderParser(Parser):
         ).lower()
         self.code = Ask.text(message="Contest Code") 
         self.contestURL = f"https://atcoder.jp/contests/{self.contest}{self.code}/tasks"
+        self.folderName = f"{rootPath}/{atCoder}/{self.code.upper()}/{self.code}"
 
         # TODO: 
         numProblems = 8
@@ -81,6 +83,7 @@ class CodeForcesParser(Parser):
     def  __init__(self):
         super().__init__()
         self.code = 0
+        self.folderName = f"{rootPath}/{codeForces}"
 
     def parseProblem(self, c):
         url = f"{codeForcesURL}{str(self.code)}/problem/{str(c)}"
@@ -109,7 +112,7 @@ class CodeForcesParser(Parser):
                 In = In.replace("<br>", "\n")
                 In = In.replace("< br>", "\n")
                 In = In.split("\n")
-                filename = f"{PWD}/{str(c)}/{str(inde)}.in"
+                filename = f"{self.folderName}/{self.code}/{str(c)}/{str(inde)}.in"
                 writeFile(In, filename)
             else:
                 Out = str(PRE[i])
@@ -123,7 +126,8 @@ class CodeForcesParser(Parser):
                 Out = Out.replace("</ br>", "\n")
                 Out = Out.replace("<br>", "\n")
                 Out = Out.split("\n")
-                filename = f"{PWD}/{str(c)}/{str(inde)}.out"
+                
+                filename = f"{self.folderName}/{self.code}/{str(c)}/{str(inde)}.out"
                 writeFile(Out, filename)
                 inde += 1
         print(
@@ -146,7 +150,7 @@ class CodeForcesParser(Parser):
             for s in p.find("a").stripped_strings:
                 ch.append(s)
 
-        print("   Connected!\n")
+        print(Fore.GREEN + "Connected!\n")
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             future_to_url = {executor.submit(self.parseProblem, c) for c in ch}
          
