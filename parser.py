@@ -51,7 +51,16 @@ class AtCoderParser(Parser):
 
     def parseProblem(self, problemChar):
         problemURL = f"{self.contestURL}/{self.contestName}_{problemChar}"
-        print(problemURL)
+        page = http.request("Get", problemURL)
+        soup = BeautifulSoup(page.data, features="lxml")
+        rows = list(filter(lambda tag: tag.contents[0].name != "var", soup.findAll("pre")))
+        rows = rows[:len(rows) // 2]
+        rows = [tag.text.split("\r\n") for tag in rows]
+        for i in range(len(rows) // 2):
+            filename = f"{self.folderName}/{problemChar}/{i}.in"
+            writeFile(rows[i*2], filename)
+            filename = f"{self.folderName}/{problemChar}/{i}.out"
+            writeFile(rows[i*2+1], filename)
         print(
             (Fore.WHITE + "parsing " + str(problemChar))
             + (Fore.GREEN + "  [Success]  ")
@@ -99,6 +108,7 @@ class AtCoderParser(Parser):
         ln = len(rows)
         if ln == 0:
             raise Exception("Failed getting the number of problems")
+        print(Fore.GREEN + "Connected!\n")
         return ln - 1 # subtract the title row
 
         
