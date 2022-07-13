@@ -11,6 +11,13 @@ def writeFile(data, filename):
             if row != "" and row != " ":
                 f.write(row + "\n")
 
+def touch(fname):
+    try:
+        os.utime(fname, None)
+    except OSError as e:
+        open(fname, 'a').close()
+        print(e)
+
 class Ask():
     @staticmethod
     def text(message):
@@ -30,3 +37,4 @@ class Ask():
             theme=GreenPassion())['ans']
 
     
+

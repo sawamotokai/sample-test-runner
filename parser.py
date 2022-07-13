@@ -2,11 +2,8 @@
 from bs4 import BeautifulSoup
 from bs4 import SoupStrainer
 import urllib3
-import subprocess
 import os
-import sys
 import concurrent.futures
-import urllib.request
 from os.path import expanduser
 from colorama import Fore, Back, Style, init
 import inquirer
@@ -50,22 +47,30 @@ class AtCoderParser(Parser):
         self.folderName = None
 
     def parseProblem(self, problemChar):
-        problemURL = f"{self.contestURL}/{self.contestName}_{problemChar}"
-        page = http.request("Get", problemURL)
-        soup = BeautifulSoup(page.data, features="lxml")
-        rows = list(filter(lambda tag: tag.contents[0].name != "var", soup.findAll("pre")))
-        rows = rows[:len(rows) // 2]
-        rows = [tag.text.split("\r\n") for tag in rows]
-        for i in range(len(rows) // 2):
-            filename = f"{self.folderName}/{problemChar}/{i}.in"
-            writeFile(rows[i*2], filename)
-            filename = f"{self.folderName}/{problemChar}/{i}.out"
-            writeFile(rows[i*2+1], filename)
-        print(
-            (Fore.WHITE + "parsing " + str(problemChar))
-            + (Fore.GREEN + "  [Success]  ")
-            + (Fore.WHITE + "")
-        )
+        try:
+            problemURL = f"{self.contestURL}/{self.contestName}_{problemChar}"
+            page = http.request("Get", problemURL)
+            soup = BeautifulSoup(page.data, features="lxml")
+            rows = list(filter(lambda tag: tag.contents[0].name != "var", soup.findAll("pre")))
+            rows = rows[:len(rows) // 2]
+            rows = [tag.text.split("\r\n") for tag in rows]
+            for i in range(len(rows) // 2):
+                filename = f"{self.folderName}/{problemChar.upper()}/{i+1}.in"
+                writeFile(rows[i*2], filename)
+                filename = f"{self.folderName}/{problemChar.upper()}/{i+1}.out"
+                writeFile(rows[i*2+1], filename)
+            touch(f"{self.folderName}/{problemChar.upper()}/main.{solutionLangExtension}")
+            print(
+                (Fore.WHITE + "parsing " + str(problemChar))
+                + (Fore.GREEN + "  [Success]  ")
+                + (Fore.WHITE + "")
+            )
+        except:
+            print(
+                (Fore.WHITE + "parsing " + str(problemChar))
+                + (Fore.RED + "  [Error]  ")
+                + (Fore.WHITE + "")
+            )
 
     
     def parse(self):
@@ -120,55 +125,64 @@ class CodeForcesParser(Parser):
         self.folderName = f"{rootPath}/{codeForces}"
 
     def parseProblem(self, c):
-        url = f"{codeForcesURL}{str(self.code)}/problem/{str(c)}"
-        page = http.request("Get", url)
-        soup = BeautifulSoup(page.data, features="lxml")
-        PRE = soup.findAll("pre")
-        L = len(PRE)
-        inde = 1
-        skipped = 0
-        for i in range(L):
-            classAttr = PRE[i].parent.get("class")
-            if classAttr is None or "note" in classAttr:
-                skipped += 1
-                continue
-            elif i % 2 == skipped % 2:
-                In = str(PRE[i])
-                In = In.replace("<pre>", "").replace("</pre>", "")
-                In = In.replace("&gt;", ">")
-                In = In.replace("&lt;", "<")
-                In = In.replace("&quot;", '"')
-                In = In.replace("&amp;", "&")
-                In = In.replace("<br />", "\n")
-                In = In.replace("<br/>", "\n")
-                In = In.replace("</ br>", "\n")
-                In = In.replace("</br>", "\n")
-                In = In.replace("<br>", "\n")
-                In = In.replace("< br>", "\n")
-                In = In.split("\n")
-                filename = f"{self.folderName}/{self.code}/{str(c)}/{str(inde)}.in"
-                writeFile(In, filename)
-            else:
-                Out = str(PRE[i])
-                Out = Out.replace("<pre>", "").replace("</pre>", "")
-                Out = Out.replace("&gt;", ">")
-                Out = Out.replace("&lt;", "<")
-                Out = Out.replace("&quot;", '"')
-                Out = Out.replace("&amp;", "&")
-                Out = Out.replace("<br />", "\n")
-                Out = Out.replace("<br/>", "\n")
-                Out = Out.replace("</ br>", "\n")
-                Out = Out.replace("<br>", "\n")
-                Out = Out.split("\n")
-                
-                filename = f"{self.folderName}/{self.code}/{str(c)}/{str(inde)}.out"
-                writeFile(Out, filename)
-                inde += 1
-        print(
-            (Fore.WHITE + "parsing " + str(c))
-            + (Fore.GREEN + "  [Success]  ")
-            + (Fore.WHITE + "")
-        )
+        try:
+            url = f"{codeForcesURL}{str(self.code)}/problem/{str(c)}"
+            page = http.request("Get", url)
+            soup = BeautifulSoup(page.data, features="lxml")
+            PRE = soup.findAll("pre")
+            L = len(PRE)
+            inde = 1
+            skipped = 0
+            for i in range(L):
+                classAttr = PRE[i].parent.get("class")
+                if classAttr is None or "note" in classAttr:
+                    skipped += 1
+                    continue
+                elif i % 2 == skipped % 2:
+                    In = str(PRE[i])
+                    In = In.replace("<pre>", "").replace("</pre>", "")
+                    In = In.replace("&gt;", ">")
+                    In = In.replace("&lt;", "<")
+                    In = In.replace("&quot;", '"')
+                    In = In.replace("&amp;", "&")
+                    In = In.replace("<br />", "\n")
+                    In = In.replace("<br/>", "\n")
+                    In = In.replace("</ br>", "\n")
+                    In = In.replace("</br>", "\n")
+                    In = In.replace("<br>", "\n")
+                    In = In.replace("< br>", "\n")
+                    In = In.split("\n")
+                    filename = f"{self.folderName}/{self.code}/{str(c)}/{str(inde)}.in"
+                    writeFile(In, filename)
+                else:
+                    Out = str(PRE[i])
+                    Out = Out.replace("<pre>", "").replace("</pre>", "")
+                    Out = Out.replace("&gt;", ">")
+                    Out = Out.replace("&lt;", "<")
+                    Out = Out.replace("&quot;", '"')
+                    Out = Out.replace("&amp;", "&")
+                    Out = Out.replace("<br />", "\n")
+                    Out = Out.replace("<br/>", "\n")
+                    Out = Out.replace("</ br>", "\n")
+                    Out = Out.replace("<br>", "\n")
+                    Out = Out.split("\n")
+                    
+                    filename = f"{self.folderName}/{self.code}/{str(c)}/{str(inde)}.out"
+                    writeFile(Out, filename)
+                    inde += 1
+            touch(f"{self.folderName}/{self.code}/{str(c)}/main.{solutionLangExtension}")
+            print(
+                (Fore.WHITE + "parsing " + str(c))
+                + (Fore.GREEN + "  [Success]  ")
+                + (Fore.WHITE + "")
+
+            )
+        except:
+            print(
+                (Fore.WHITE + "parsing " + str(problemChar))
+                + (Fore.RED + "  [Error]  ")
+                + (Fore.WHITE + "")
+            )
 
 
     def parse(self):
@@ -190,5 +204,6 @@ class CodeForcesParser(Parser):
         os.chdir(f"{self.folderName}/{self.code}")
          
 
-parser = ParserFactory.get()
-parser.parse()
+if __name__ == '__main__':
+    parser = ParserFactory.get()
+    parser.parse()
