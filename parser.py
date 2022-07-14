@@ -1,22 +1,13 @@
-# parse.py 'sukeesh'
-from bs4 import BeautifulSoup
-from bs4 import SoupStrainer
-import urllib3
 import os
-import concurrent.futures
-from os.path import expanduser
-from colorama import Fore, Back, Style, init
-import inquirer
-from inquirer.themes import GreenPassion
 import time
+import concurrent.futures
+import urllib3
+from bs4 import BeautifulSoup
+from colorama import Fore, init
 
 from utils import *
 from config import *
 
-#TODO organize import
-
-home = expanduser("~")
-PWD = os.getcwd()
 http = urllib3.PoolManager()
 init()
 
