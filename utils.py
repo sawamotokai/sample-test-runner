@@ -16,7 +16,6 @@ def touch(fname):
         os.utime(fname, None)
     except OSError as e:
         open(fname, 'a').close()
-        print(e)
 
 class Ask():
     @staticmethod

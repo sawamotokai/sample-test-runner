@@ -8,6 +8,7 @@ from os.path import expanduser
 from colorama import Fore, Back, Style, init
 import inquirer
 from inquirer.themes import GreenPassion
+import time
 
 from utils import *
 from config import *
@@ -107,14 +108,18 @@ class AtCoderParser(Parser):
                 executor.submit(self.parseProblem, problemChar)
 
     def getNumberOfProblems(self, URL):
-        page = http.request("Get", URL)
-        soup = BeautifulSoup(page.data, features="lxml")
-        rows = soup.findAll("tr")
-        ln = len(rows)
-        if ln == 0:
-            raise Exception("Failed getting the number of problems")
-        print(Fore.GREEN + "Connected!\n")
-        return ln - 1 # subtract the title row
+        while True:
+            page = http.request("Get", URL)
+            soup = BeautifulSoup(page.data, features="lxml")
+            rows = soup.findAll("tr")
+            ln = len(rows)
+            if ln == 0:
+                print((Fore.RED + "Failed to connect!"))
+                print(Fore.WHITE + "Trying again...")
+                time.sleep(1)
+                continue
+            print(Fore.GREEN + "Connected!\n")
+            return ln - 1 # subtract the title row
 
         
 
@@ -187,18 +192,26 @@ class CodeForcesParser(Parser):
 
     def parse(self):
         self.code = int(Ask.text(message="Contest Code"))
-        url = codeForcesURL + str(self.code)
-        http.request("Get", url)
-        page = http.request("Get", url)
-        soup = BeautifulSoup(page.data, features="lxml")
-        sz = soup.findAll(title="Submit")
+        while True:
+            url = codeForcesURL + str(self.code)
+            http.request("Get", url)
+            page = http.request("Get", url)
+            soup = BeautifulSoup(page.data, features="lxml")
+            sz = soup.findAll(title="Submit")
+            if len(sz) == 0:
+                print((Fore.RED + "Failed to connect!"))
+                print(Fore.WHITE + "Trying again...")
+                time.sleep(1)
+                continue
 
-        ch = []
-        for p in soup.findAll("td", attrs={"class": "id"}):
-            for s in p.find("a").stripped_strings:
-                ch.append(s)
+            ch = []
+            for p in soup.findAll("td", attrs={"class": "id"}):
+                for s in p.find("a").stripped_strings:
+                    ch.append(s)
+            break
+            
 
-        print(Fore.GREEN + "Connected!\n")
+        print(Fore.GREEN + "Connected!" + Fore.WHITE + "")
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             future_to_url = {executor.submit(self.parseProblem, c) for c in ch}
         os.chdir(f"{self.folderName}/{self.code}")
