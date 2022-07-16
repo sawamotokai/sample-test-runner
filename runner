@@ -30,7 +30,7 @@ then
 	exit
 fi
 
-tempOutputFile=temp.txt
+tempOutputFile=$(pwd)/$problem/tmp.txt
 correct=0
 for ((i = 1 ; i <= $numFiles ; i++)); do
 	inputTextFile=$(pwd)/$problem/$i.in
