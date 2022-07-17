@@ -1,0 +1,4 @@
+python3 ~/.sample-test-runner/parse.py
+dirPath=`cat ~/.sample-test-runner/dirPath.txt`
+echo $dirPath
+cd $dirPath

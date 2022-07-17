@@ -4,9 +4,8 @@ import concurrent.futures
 import urllib3
 from bs4 import BeautifulSoup
 from colorama import Fore, init
-
-from utils import *
-from config import *
+import inquirer
+from inquirer.themes import GreenPassion
 
 http = urllib3.PoolManager()
 init()
@@ -118,11 +117,12 @@ class CodeForcesParser(Parser):
     def  __init__(self):
         super().__init__()
         self.code = 0
-        self.folderName = f"{rootPath}/{codeForces}"
+        self.folderName = None
 
     def parseProblem(self, c):
         try:
             url = f"{codeForcesURL}{str(self.code)}/problem/{str(c)}"
+            self.folderName = f"{rootPath}/{codeForces}/{self.code}"
             page = http.request("Get", url)
             soup = BeautifulSoup(page.data, features="lxml")
             PRE = soup.findAll("pre")
@@ -148,7 +148,7 @@ class CodeForcesParser(Parser):
                     In = In.replace("<br>", "\n")
                     In = In.replace("< br>", "\n")
                     In = In.split("\n")
-                    filename = f"{self.folderName}/{self.code}/{str(c)}/{str(inde)}.in"
+                    filename = f"{self.folderName}/{str(c)}/{str(inde)}.in"
                     writeFile(In, filename)
                 else:
                     Out = str(PRE[i])
@@ -163,10 +163,10 @@ class CodeForcesParser(Parser):
                     Out = Out.replace("<br>", "\n")
                     Out = Out.split("\n")
                     
-                    filename = f"{self.folderName}/{self.code}/{str(c)}/{str(inde)}.out"
+                    filename = f"{self.folderName}/{str(c)}/{str(inde)}.out"
                     writeFile(Out, filename)
                     inde += 1
-            touch(f"{self.folderName}/{self.code}/{str(c)}/main.{solutionLangExtension}")
+            touch(f"{self.folderName}/{str(c)}/main.{solutionLangExtension}")
             print(
                 (Fore.WHITE + "parsing " + str(c))
                 + (Fore.GREEN + "  [Success]  ")
@@ -205,9 +205,73 @@ class CodeForcesParser(Parser):
         print(Fore.GREEN + "Connected!" + Fore.WHITE + "")
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             future_to_url = {executor.submit(self.parseProblem, c) for c in ch}
-        os.chdir(f"{self.folderName}/{self.code}")
          
+##############################################################
+## CONFIG ####################################################
+
+## path constants i.e., {rootPath}/{atCoder}/<ABC | ARC | AGC>/<contest code>
+rootPath = f"{os.environ['HOME']}/workspace/competitive-programming"
+atCoder = 'AtCoder'
+atCoder_abc = 'ABC'
+atCoder_arc = 'ARC'
+atCoder_agc = 'AGC'
+
+codeForces = 'codeForces'
+
+## URL constants
+atCoderURL = "https://atcoder.jp/"
+codeForcesURL = "https://www.codeforces.com/contest/"
+
+## Misc
+solutionLangExtension = 'cpp'
+
+## END CONFIG ################################################
+##############################################################
+
+##############################################################
+## UTIL ######################################################
+
+def writeFile(data, filename):
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    with open(filename, 'w') as f:
+        for _row in data:
+            row = _row.replace("\n", "")
+            if row != "" and row != " ":
+                f.write(row + "\n")
+
+def touch(fname):
+    try:
+        os.utime(fname, None)
+    except OSError as e:
+        open(fname, 'a').close()
+
+class Ask():
+    @staticmethod
+    def text(message):
+        return inquirer.prompt(
+            questions=[
+                inquirer.Text('ans',
+                message=message)],
+            theme=GreenPassion())['ans']
+
+    @staticmethod
+    def list_input(message, choices):
+        return inquirer.prompt(
+            questions=[
+                inquirer.List('ans',
+                message=message,
+                choices=choices)],
+            theme=GreenPassion())['ans']
+
+## END UTIL ##################################################
+##############################################################
 
 if __name__ == '__main__':
     parser = ParserFactory.get()
     parser.parse()
+    dirPath=f"{os.path.expanduser('~')}/.sample-test-runner/dirPath.txt"
+    print(f"Run the following command: cd {parser.folderName}")
+    os.makedirs(os.path.dirname(dirPath), exist_ok=True)
+    with open(dirPath, 'w') as f:
+        f.write(parser.folderName)
+
