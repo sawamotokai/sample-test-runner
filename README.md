@@ -1,21 +1,24 @@
 # What is Sample Test Runner?
 
-Sample Test Runner scrapes sample inputs and outputs of coding contests on AtCoder and CodeForces - two of the major
-competitive programming platforms.
+Sample Test Runner:
+
+- scrapes sample inputs and outputs of coding contests on AtCoder and CodeForces - two of the major
+  competitive programming platforms.
+- runs sample tests against your solution and shows stats (only C++ is supported).
 
 ## Installation
-- TODO
+
+- Run the following commands in terminal.
+  - `chmod +x install.sh`
+  - `./install.sh`
 
 ## How to use the program
+
 ### Fetching test cases
-- run `python parser.py`
+
+- run `cpget` and follow the command line instructions.
+  - Optional: Use `. cpget` if you want to move into the directory for the contest.
+
 ### Testing your solution
-- run `./runner <test case alphabet>` (Example: `./runner c`)
 
-
-## TODO
-
-- install script
-  - download dependency
-  - copy script
-  - connect path
+- run `cprun <test case alphabet>` (Example: `cprun c`)
