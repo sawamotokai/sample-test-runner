@@ -9,8 +9,8 @@ Sample Test Runner:
 ## Installation
 
 - Run the following commands in terminal.
-  - `chmod +x install.sh`
-  - `./install.sh`
+  - `sudo chmod +x install.sh`
+  - `sudo ./install.sh`
 
 ## How to use the program
 
