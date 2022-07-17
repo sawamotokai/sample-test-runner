@@ -6,3 +6,6 @@ sudo cp src/parse.py ~/.sample-test-runner/parse.py
 sudo chmod 755 /usr/local/bin/cprun
 sudo chmod 755 /usr/local/bin/cpget
 sudo chmod 755 ~/.sample-test-runner/parse.py
+echo "alias cpget=\". cpget\"" >> ~/.bashrc
+echo "Run: source ~.bashrc"
+echo "to complete installation."

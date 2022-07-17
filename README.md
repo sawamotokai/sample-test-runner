@@ -16,9 +16,15 @@ Sample Test Runner:
 
 ### Fetching test cases
 
-- run `cpget` and follow the command line instructions.
-  - Optional: Use `. cpget` if you want to move into the directory for the contest.
+- run
+  ```
+  cpget
+  ```
 
 ### Testing your solution
 
-- run `cprun <test case alphabet>` (Example: `cprun c`)
+- run the following in the workspace created (NOT inside a specific problem directory).
+  ```
+  cprun <test case alphabet>
+  ```
+  Example: `cprun c`
