@@ -270,6 +270,7 @@ if __name__ == '__main__':
     parser = ParserFactory.get()
     parser.parse()
     dirPath=f"{os.path.expanduser('~')}/.sample-test-runner/dirPath.txt"
+    print(f"Workspace has been created under {parser.folderName}")
     print(f"Run the following command: cd {parser.folderName}")
     os.makedirs(os.path.dirname(dirPath), exist_ok=True)
     with open(dirPath, 'w') as f:
