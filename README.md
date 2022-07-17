@@ -8,23 +8,32 @@ Sample Test Runner:
 
 ## Installation
 
-- Run the following commands in terminal.
-  - `sudo chmod +x install.sh`
-  - `sudo ./install.sh`
+Run the following commands in terminal.
+
+```
+sudo chmod +x install.sh
+```
+
+```
+sudo ./install.sh
+```
 
 ## How to use the program
 
 ### Fetching test cases
 
-- run
-  ```
-  cpget
-  ```
+Run below command and follow the command line instructions.
+
+```
+cpget
+```
 
 ### Testing your solution
 
 - run the following in the workspace created (NOT inside a specific problem directory).
-  ```
-  cprun <test case alphabet>
-  ```
-  Example: `cprun c`
+
+```
+cprun <test case alphabet>
+```
+
+Example: `cprun c`
