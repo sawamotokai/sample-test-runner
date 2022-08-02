@@ -2,13 +2,11 @@ import os
 import time
 import requests
 import concurrent.futures
-import urllib3
 from bs4 import BeautifulSoup
 from colorama import Fore, init
 import inquirer
 from inquirer.themes import GreenPassion
 
-http = urllib3.PoolManager()
 init()
 
 class ParserFactory(object):
@@ -22,7 +20,7 @@ class ParserFactory(object):
         if website == ac:
             return AtCoderParser(atcoder_username, atcoder_password)
         elif website == cf:
-            return CodeForcesParser()
+            return CodeForcesParser(codeforces_username, codeforces_password)
         else:
             raise Exception("Ilegal Input")
 
@@ -42,6 +40,7 @@ class AtCoderParser(Parser):
         self.folderName = None
         self.username = username
         self.password = password
+        self.session = self.login()
 
     # returns a logged in session
     def login(self):
@@ -68,8 +67,8 @@ class AtCoderParser(Parser):
     def parseProblem(self, problemChar):
         try:
             problemURL = f"{self.contestURL}/{self.contestName}_{problemChar}"
-            page = http.request("Get", problemURL)
-            soup = BeautifulSoup(page.data, features="lxml")
+            page = self.session.get(problemURL)
+            soup = BeautifulSoup(page.content, features="lxml")
             rows = list(filter(lambda tag: tag.contents[0].name != "var", soup.findAll("pre")))
             rows = rows[:len(rows) // 2]
             rows = [tag.text.split("\r\n") for tag in rows]
@@ -127,8 +126,7 @@ class AtCoderParser(Parser):
 
     def getNumberOfProblems(self, URL):
         while True:
-            session = self.login()
-            page = session.get(URL)
+            page = self.session.get(URL)
             soup = BeautifulSoup(page.content, features="lxml")
             rows = soup.findAll("tr")
             ln = len(rows)
@@ -143,17 +141,20 @@ class AtCoderParser(Parser):
         
 
 class CodeForcesParser(Parser):
-    def  __init__(self):
+    def  __init__(self, username, password):
         super().__init__()
         self.code = 0
         self.folderName = None
+        self.username = username
+        self.password = password
+        self.session = self.login()
 
     def parseProblem(self, c):
         try:
             url = f"{codeForcesURL}{str(self.code)}/problem/{str(c)}"
             self.folderName = f"{rootPath}/{codeForces}/{self.code}"
-            page = http.request("Get", url)
-            soup = BeautifulSoup(page.data, features="lxml")
+            page = self.session.get(url)
+            soup = BeautifulSoup(page.content, features="lxml")
             PRE = soup.findAll("pre")
             L = len(PRE)
             inde = 1
@@ -209,14 +210,32 @@ class CodeForcesParser(Parser):
                 + (Fore.WHITE + "")
             )
 
+    def login(self):
+        URL = 'https://codeforces.com/enter?back=%2F'
+        client = requests.Session()
+        r1 = client.get(URL)
+        soup = BeautifulSoup(r1.content, features="lxml")
+        t = soup.find('input', {'name': 'csrf_token'})
+        csrf_token = t.get('value')
+        print(csrf_token)
+        payload = {
+            'handleOrEmail': self.username,
+            'password': self.password,
+            'csrf_token': csrf_token,
+            'action': 'enter',
+        }
+        headers = {
+            'referer': URL,
+        }
+        client.post(URL, data=payload, headers=headers)
+        return client
 
     def parse(self):
         self.code = int(Ask.text(message="Contest Code"))
         while True:
             url = codeForcesURL + str(self.code)
-            http.request("Get", url)
-            page = http.request("Get", url)
-            soup = BeautifulSoup(page.data, features="lxml")
+            page = self.session.get(url)
+            soup = BeautifulSoup(page.content, features="lxml")
             sz = soup.findAll(title="Submit")
             if len(sz) == 0:
                 print((Fore.RED + "Failed to connect!"))
