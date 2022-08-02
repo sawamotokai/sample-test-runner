@@ -37,3 +37,7 @@ cprun <test case alphabet>
 ```
 
 Example: `cprun c`
+
+###TODO
+- check getchar dependency issue is resolved  by readchar. git+https://github.com/Cube707/python-readchar.git@v3.0.6 is out datated?
+- only add PATH when it's not already done

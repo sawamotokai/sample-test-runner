@@ -1,5 +1,6 @@
 import os
 import time
+import requests
 import concurrent.futures
 import urllib3
 from bs4 import BeautifulSoup
@@ -19,7 +20,7 @@ class ParserFactory(object):
             message="Which website?",
             choices=[ac,cf])
         if website == ac:
-            return AtCoderParser()
+            return AtCoderParser(atcoder_username, atcoder_password)
         elif website == cf:
             return CodeForcesParser()
         else:
@@ -32,10 +33,37 @@ class Parser(object):
     def parse(self):
         raise Exception("This method has to be overridden.")
 
+    def login(self):
+        raise Exception("This method has to be overridden.")
+
 class AtCoderParser(Parser):
-    def  __init__(self):
+    def  __init__(self, username, password):
         super().__init__()
         self.folderName = None
+        self.username = username
+        self.password = password
+
+    # returns a logged in session
+    def login(self):
+        URL = 'https://atcoder.jp/login?continue=https%3A%2F%2Fatcoder.jp%2F'
+        client = requests.Session()
+        r1 = client.get(URL)
+        soup = BeautifulSoup(r1.content, features="lxml")
+        t = soup.find('input', {'name': 'csrf_token'})
+        csrf_token = t.get('value')
+        csrf = client.cookies.get_dict()['REVEL_SESSION']
+        payload = {
+            'username': self.username,
+            'password': self.password,
+            'csrf_token': csrf_token
+        }
+        headers = {
+            'referer': URL,
+            'REVEL_SESSION': csrf,
+            'X-XSRF-token': csrf
+        }
+        client.post(URL, data=payload, headers=headers)
+        return client
 
     def parseProblem(self, problemChar):
         try:
@@ -99,8 +127,9 @@ class AtCoderParser(Parser):
 
     def getNumberOfProblems(self, URL):
         while True:
-            page = http.request("Get", URL)
-            soup = BeautifulSoup(page.data, features="lxml")
+            session = self.login()
+            page = session.get(URL)
+            soup = BeautifulSoup(page.content, features="lxml")
             rows = soup.findAll("tr")
             ln = len(rows)
             if ln == 0:
@@ -209,6 +238,12 @@ class CodeForcesParser(Parser):
 ##############################################################
 ## CONFIG ####################################################
 
+## User
+atcoder_username = os.getenv('ATCODER_USERNAME', default="")
+atcoder_password = os.getenv('ATCODER_PASSWORD', default="")
+codeforces_username = os.getenv('CODEFORCES_USERNAME', default="")
+codeforces_password = os.getenv('CODEFORCES_PASSWORD', default="")
+
 ## path constants i.e., {rootPath}/{atCoder}/<ABC | ARC | AGC>/<contest code>
 rootPath = f"{os.environ['HOME']}/workspace/competitive-programming"
 atCoder = 'AtCoder'
@@ -269,7 +304,7 @@ class Ask():
 if __name__ == '__main__':
     parser = ParserFactory.get()
     parser.parse()
-    dirPath=f"{os.path.expanduser('~')}/.sample-test-runner/dirPath.txt"
+    dirPath=f"/tmp/sample-test-runner-pwd.txt"
     print(f"Workspace has been created under {parser.folderName}")
     os.makedirs(os.path.dirname(dirPath), exist_ok=True)
     with open(dirPath, 'w') as f:
