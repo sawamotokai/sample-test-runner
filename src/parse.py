@@ -217,7 +217,6 @@ class CodeForcesParser(Parser):
         soup = BeautifulSoup(r1.content, features="lxml")
         t = soup.find('input', {'name': 'csrf_token'})
         csrf_token = t.get('value')
-        print(csrf_token)
         payload = {
             'handleOrEmail': self.username,
             'password': self.password,
