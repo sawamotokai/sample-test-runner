@@ -18,8 +18,14 @@ class ParserFactory(object):
             message="Which website?",
             choices=[ac,cf])
         if website == ac:
+            if atcoder_password == "" or atcoder_username == "":
+                raise Exception("Environment variables are not set properly.\n"
+                + "Make sure to set ATCODER_USERNAME and ATCODER_PASSWORD environment variables.")
             return AtCoderParser(atcoder_username, atcoder_password)
         elif website == cf:
+            if codeforces_password == "" or codeforces_username == "":
+                raise Exception("Environment variables are not set properly.\n"
+                + "Make sure to set CODEFORCES_USERNAME and CODEFORCES_PASSWORD environment variables.")
             return CodeForcesParser(codeforces_username, codeforces_password)
         else:
             raise Exception("Ilegal Input")
