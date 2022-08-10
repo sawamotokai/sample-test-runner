@@ -293,8 +293,11 @@ solutionLangExtension = 'cpp'
 def writeFile(data, filename):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, 'w') as f:
-        for _row in data:
-            row = _row.replace("\n", "")
+        rows = []
+        for d in data:
+            for t in d.split("\n"):
+                rows.append(t.strip())
+        for row in rows:
             if row != "" and row != " ":
                 f.write(row + "\n")
 
