@@ -43,7 +43,7 @@ for ((i = 1 ; i <= $numFiles ; i++)); do
 	diffOutput=$(diff $outputTextFile $tempOutputFile)
 	diffLines=$(echo "$diffOutput" | wc -l)
 	if [ $diffLines -gt 1 ]; then
-		echo -e "${RED}\u2718 Failed sample $i!${NC}"
+		echo -e "${RED}✘ Failed sample $i!${NC}"
 		echo -e "--------------------\n>> Input:"
 		cat $inputTextFile
 		echo -e "--------------------\n>> Output:"
@@ -52,7 +52,7 @@ for ((i = 1 ; i <= $numFiles ; i++)); do
 		cat $outputTextFile
 		echo -e "--------------------\n"
 	else
-		echo -e "${GREEN}\u2713 Passed sample $i!${NC}"
+		echo -e "${GREEN}✓ Passed sample $i!${NC}"
 		correct=`expr $correct + 1`
 	fi
 done
@@ -61,9 +61,9 @@ color=
 icon=
 if [[ $correct -eq $numFiles ]]; then
 	color=$GREEN
-	icon="\u2713"
+	icon="✓"
 else
 	color=$RED
-	icon="\u2718"
+	icon="✘"
 fi
 echo -e "\n\n${color}${icon} Passed [$correct/$numFiles] tests${NC}"
