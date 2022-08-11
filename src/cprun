@@ -11,6 +11,8 @@ UNDERLINE='\e[4m'
 
 if [[ $numFiles -eq 0 ]]; then
 	echo "No input files."
+  echo "Specify the problem id."
+  echo "Example: cprun c"
 	exit
 fi
 
@@ -26,7 +28,7 @@ fla=0
 g++ -std=c++17 -Wall -fsanitize=undefined -O2 $(pwd)/$problem/main.cpp || fla=1
 if [ $fla -eq 1 ]
 then
-	echo -e "\n\033[1;31m : Compilation Error\e[0m"
+	echo -e "${RED} : Compilation Error${NC}"
 	exit
 fi
 
