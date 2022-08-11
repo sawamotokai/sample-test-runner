@@ -6,10 +6,17 @@ Sample Test Runner:
   competitive programming platforms.
 - runs sample tests against your solution and shows stats (only C++ is supported).
 
+## Demo
+- Parse contest
+  ![Parsing contest](gifs/cpget-demo.gif)
+- Run Sample Tests
+  ![Run Sample Tests](gifs/cprun-demo.gif)
+
 ## Installation
 
 Run the following commands in terminal.
 
+u
 ```
 sudo chmod +x install.sh
 ```
