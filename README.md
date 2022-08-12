@@ -23,7 +23,7 @@ sudo chmod +x install.sh
 ```
 sudo ./install.sh
 ```
-#### If you want to use this program, you have to set the following environment variables for the program to be authenticated by the contest website.
+If you want to use this program during contests, you have to set the following environment variables for the program to be authenticated by the contest website.
 ```
 export ATCODER_USERNAME=<your username>
 export ATCODER_PASSWORD=<your password>
