@@ -83,7 +83,7 @@ class AtCoderParser(Parser):
                 writeFile(rows[i*2], filename)
                 filename = f"{self.folderName}/{problemChar.upper()}/{i+1}.out"
                 writeFile(rows[i*2+1], filename)
-            touch(f"{self.folderName}/{problemChar.upper()}/main.{solutionLangExtension}")
+            touch(f"{self.folderName}/{problemChar.upper()}/{problemChar.upper()}.{solutionLangExtension}")
             print(
                 (Fore.WHITE + "parsing " + str(problemChar))
                 + (Fore.GREEN + "  [Success]  ")
@@ -202,7 +202,7 @@ class CodeForcesParser(Parser):
                     filename = f"{self.folderName}/{str(c)}/{str(inde)}.out"
                     writeFile(Out, filename)
                     inde += 1
-            touch(f"{self.folderName}/{str(c)}/main.{solutionLangExtension}")
+            touch(f"{self.folderName}/{str(c)}/{str(c).upper()}.{solutionLangExtension}")
             print(
                 (Fore.WHITE + "parsing " + str(c))
                 + (Fore.GREEN + "  [Success]  ")
