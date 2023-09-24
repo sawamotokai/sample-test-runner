@@ -95,6 +95,8 @@ class AtCoderParser(Parser):
                 + (Fore.RED + "  [Error]  ")
                 + (Fore.WHITE + "")
             )
+            print("Retrying parsing " + str(problemChar))
+            self.parseProblem(problemChar)
 
     
     def parse(self):
@@ -211,10 +213,12 @@ class CodeForcesParser(Parser):
             )
         except:
             print(
-                (Fore.WHITE + "parsing " + str(problemChar))
+                (Fore.WHITE + "parsing " + str(c))
                 + (Fore.RED + "  [Error]  ")
                 + (Fore.WHITE + "")
             )
+            print("Retrying parsing " + str(c))
+            self.parseProblem(c)
 
     def login(self):
         URL = 'https://codeforces.com/enter?back=%2F'
