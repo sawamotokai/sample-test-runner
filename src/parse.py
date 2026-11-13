@@ -3,6 +3,9 @@ import sys
 import time
 import requests
 import concurrent.futures
+import re
+from pathlib import Path
+from urllib.parse import urljoin, urlsplit
 from bs4 import BeautifulSoup
 from colorama import Fore, init
 import inquirer
@@ -19,9 +22,6 @@ class ParserFactory(object):
             message="Which website?",
             choices=[ac,cf])
         if website == ac:
-            if atcoder_password == "" or atcoder_username == "":
-                raise Exception("Environment variables are not set properly.\n"
-                + "Make sure to set ATCODER_USERNAME and ATCODER_PASSWORD environment variables.")
             return AtCoderParser(atcoder_username, atcoder_password)
         elif website == cf:
             if codeforces_password == "" or codeforces_username == "":
@@ -47,59 +47,61 @@ class AtCoderParser(Parser):
         self.folderName = None
         self.username = username
         self.password = password
-        self.session = self.login()
+        self.session = requests.Session()
 
     # returns a logged in session
     def login(self):
         URL = 'https://atcoder.jp/login?continue=https%3A%2F%2Fatcoder.jp%2F'
         client = requests.Session()
-        r1 = client.get(URL)
+        r1 = client.get(URL, timeout=30)
+        r1.raise_for_status()
         soup = BeautifulSoup(r1.content, features="lxml")
         t = soup.find('input', {'name': 'csrf_token'})
+        if t is None:
+            raise ValueError("AtCoder login is unavailable: no CSRF token in the login page")
         csrf_token = t.get('value')
-        csrf = client.cookies.get_dict()['REVEL_SESSION']
         payload = {
             'username': self.username,
             'password': self.password,
             'csrf_token': csrf_token
         }
-        headers = {
-            'referer': URL,
-            'REVEL_SESSION': csrf,
-            'X-XSRF-token': csrf
-        }
-        client.post(URL, data=payload, headers=headers)
+        result = client.post(URL, data=payload, headers={'referer': URL}, timeout=30)
+        result.raise_for_status()
+        if urlsplit(result.url).path == "/login":
+            raise ValueError("AtCoder login failed; check your credentials or log in through a browser")
         return client
 
-    def parseProblem(self, problemChar):
-        try:
-            problemURL = f"{self.contestURL}/{self.contestName}_{problemChar}"
-            page = self.session.get(problemURL)
-            soup = BeautifulSoup(page.content, features="lxml")
-            rows = list(filter(lambda tag: tag.contents[0].name != "var", soup.find_all("pre")))
-            rows = rows[:len(rows) // 2]
-            rows = [tag.text.split("\r\n") for tag in rows]
-            for i in range(len(rows) // 2):
-                filename = f"{self.folderName}/{problemChar.upper()}/{i+1}.in"
-                writeFile(rows[i*2], filename)
-                filename = f"{self.folderName}/{problemChar.upper()}/{i+1}.out"
-                writeFile(rows[i*2+1], filename)
-            touch(f"{self.folderName}/{problemChar.upper()}/{problemChar.upper()}.{solutionLangExtension}")
-            print(
-                (Fore.WHITE + "parsing " + str(problemChar))
-                + (Fore.GREEN + "  [Success]  ")
-                + (Fore.WHITE + "")
-            )
-        except:
-            print(
-                (Fore.WHITE + "parsing " + str(problemChar))
-                + (Fore.RED + "  [Error]  ")
-                + (Fore.WHITE + "")
-            )
-            print("Retrying parsing " + str(problemChar))
-            self.parseProblem(problemChar)
+    def parseProblem(self, label, problem_url):
+        page = self.session.get(problem_url, timeout=30)
+        page.raise_for_status()
+        soup = BeautifulSoup(page.content, features="lxml")
+        language = soup.select_one(".lang-en") or soup.select_one(".lang-ja") or soup
+        inputs, outputs = {}, {}
+        for section in language.select("section"):
+            heading, sample = section.find("h3"), section.find("pre")
+            if heading is None or sample is None:
+                continue
+            title = heading.get_text(" ", strip=True)
+            input_match = re.fullmatch(r"(?:Sample Input|入力例)\s*(\d+)", title, re.IGNORECASE)
+            output_match = re.fullmatch(r"(?:Sample Output|出力例)\s*(\d+)", title, re.IGNORECASE)
+            match = input_match or output_match
+            if match:
+                samples = inputs if input_match else outputs
+                samples[int(match.group(1))] = sample.get_text().replace("\r\n", "\n")
+        if not inputs or inputs.keys() != outputs.keys():
+            raise ValueError(f"Missing or mismatched samples for {label}: {problem_url}")
 
-    
+        directory = Path(self.folderName) / label
+        directory.mkdir(parents=True, exist_ok=True)
+        for number in sorted(inputs):
+            for extension, samples in (("in", inputs), ("out", outputs)):
+                content = samples[number]
+                if not content.endswith("\n"):
+                    content += "\n"
+                (directory / f"{number}.{extension}").write_text(content)
+        touch(str(directory / f"{label}.{solutionLangExtension}"))
+        print(Fore.WHITE + f"parsing {label}" + Fore.GREEN + "  [Success]  " + Fore.WHITE)
+
     def parse(self):
         abc = "ABC"
         arc = "ARC"
@@ -118,36 +120,31 @@ class AtCoderParser(Parser):
             self.contestName = code
         self.contestURL = f"https://atcoder.jp/contests/{self.contestName}/tasks"
         self.folderName = f"{rootPath}/{atCoder}/{contest.upper()}/{code}"
-        numProblems = self.getNumberOfProblems(self.contestURL)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            for i in range(numProblems):
-                problemChar= chr(ord('a') + i)
-                try: # if enterprise contests, code is not integer
-                    # old contests have different problem IDs
-                    if (contest == abc.lower() and int(code) < 20) or (contest == arc.lower() and int(code) < 35):
-                        problemChar = i + 1
-                    # old ARC starts from problem c
-                    if contest == arc.lower() and int(code) <= 113 and int(code) >= 58:
-                        problemChar= chr(ord('a') + i + 2)
-                except:
-                    pass
-                executor.submit(self.parseProblem, problemChar)
+        problems = self.fetch_problems()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(self.parseProblem, label, url) for label, url in problems]
+            # Reading each result propagates failed downloads to the CLI.
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
 
-    def getNumberOfProblems(self, URL):
-        while True:
-            page = self.session.get(URL)
-            soup = BeautifulSoup(page.content, features="lxml")
-            rows = soup.find_all("tr")
-            ln = len(rows)
-            if ln == 0:
-                print((Fore.RED + "Failed to connect!"))
-                print(Fore.WHITE + "Trying again...")
-                time.sleep(1)
-                continue
-            print(Fore.GREEN + "Connected!\n")
-            return ln - 1 # subtract the title row
+    def fetch_problems(self):
+        page = self.session.get(self.contestURL, timeout=30)
+        if urlsplit(page.url or "").path == "/login":
+            if not self.username or not self.password:
+                raise ValueError("This contest requires ATCODER_USERNAME and ATCODER_PASSWORD")
+            self.session = self.login()
+            page = self.session.get(self.contestURL, timeout=30)
+        page.raise_for_status()
+        soup = BeautifulSoup(page.content, features="lxml")
+        problems = [
+            (link.get_text(strip=True).upper(), urljoin(self.contestURL, link["href"]))
+            for link in soup.select("table tbody tr td:first-child a[href]")
+        ]
+        if not problems:
+            raise ValueError(f"No problems found: {self.contestURL}")
+        print(Fore.GREEN + "Connected!\n" + Fore.WHITE)
+        return problems
 
-        
 
 class CodeForcesParser(Parser):
     def  __init__(self, username, password):
@@ -350,3 +347,6 @@ if __name__ == '__main__':
             f.write(parser.folderName)
     except KeyboardInterrupt:
         sys.exit(130)
+    except (requests.RequestException, ValueError) as error:
+        print(f"Sample download failed: {error}", file=sys.stderr)
+        sys.exit(1)

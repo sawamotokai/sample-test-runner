@@ -14,7 +14,14 @@ bash install.sh
 
 このBranchのInstallerはPython 3.12の専用Virtual environmentを作り、Lock済みDependenciesを導入する。
 `~/.local/bin/cprun` と `cpget` はSource ScriptへのSymlink。sudoやSystem PythonへのPackage追加は不要。
-fish用のPATH設定と `cpget` Functionも導入する。他のShellでは `~/.local/bin` をPATHへ追加する。
+fish用のPATH設定と `cpget` / `cprun` Functionも導入する。他のShellでは `~/.local/bin` をPATHへ追加する。
+fish IntegrationはRepositoryへのSymlinkとして管理する。既に開いているfishでは次を実行して反映する。
+
+```fish
+source ~/.config/fish/conf.d/sample-test-runner.fish
+```
+
+独自に編集された同名のfish設定がある場合、Installerは上書きせず通知する。
 GitHubへのpush前は、このMacにあるLocal Branchを利用する。
 
 ## Sampleの実行
@@ -45,16 +52,25 @@ NvChad Customの `Space d r` で、現在の `.cpp` Fileを保存してTerminal 
 cpget
 ```
 
-元のParserはLoginを前提にしている。利用先に対応するEnvironment VariableをShellで設定する。
+AtCoderの公開SampleはLoginなしで取得する。認証が必要なContestやCodeForcesでは、
+利用先に対応するEnvironment VariableをShellで設定する。
 
 - AtCoder: `ATCODER_USERNAME` / `ATCODER_PASSWORD`
 - CodeForces: `CODEFORCES_USERNAME` / `CODEFORCES_PASSWORD`
+
+fishでは `set -gx VARIABLE value` でEnvironment Variableを設定できる。
+fish Function経由なら `set -g` の設定値もCommand実行中だけexportする。
+対象は上記Credentials、`SAMPLE_TEST_RUNNER_ROOT`、`XDG_STATE_HOME`（`cpget`）、
+`CXX`、`TMPDIR`（`cprun`）。引数は空白を含むPathもそのまま渡す。
 
 CredentialsをRepositoryに保存しない。保存先の既定は `~/workspace/competitive-programming`。
 `SAMPLE_TEST_RUNNER_ROOT` で変更できる。fishでは取得成功後に生成されたWorkspaceへ移動する。
 生成先は `~/.local/state/sample-test-runner/workspace` に保存する。
 
-Website側の現在のLogin/Scraping動作は未検証。Installation時はMenu表示とCancelを確認し、認証やSubmissionは行っていない。
+AtCoderはTask一覧に掲載されたURLを使う。取得失敗はErrorとして終了し、無限Retryしない。
+fishからABC086 AのSample取得と実行を確認した。最終確認時にAtCoderがHTTP 403を返したため、
+Contest全体のLive取得は未確認。取得後のDirectory移動はIntegration testで確認した。
+CodeForces側の現在のLogin/Scraping動作は未検証。
 
 ## Validation
 
@@ -62,5 +78,7 @@ Website側の現在のLogin/Scraping動作は未検証。Installation時はMenu�
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-6 Test casesでProblem ID、空白を含むAbsolute Path、Flat Source構成、Wrong answer、Compile error、Sample不足を確認。
+17 Test casesでProblem ID、空白を含むAbsolute Path、Flat Source構成、Wrong answer、Compile error、Sample不足に加え、
+fishからの設定値の受け渡し、取得後のDirectory移動、失敗時のExit code保持、AtCoderの実際のTask URLを使う処理を確認する。
+fishがない環境ではfish専用の5件をSkipする。
 Nvimの実際のKeymap入力から、[AtCoder ABC086 A](https://atcoder.jp/contests/abc086/tasks/abc086_a)の公式Sample 2個を実行して通過した。

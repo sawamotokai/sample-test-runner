@@ -22,10 +22,15 @@ printf 'Installed cprun and cpget in %s\n' "$bin_dir"
 if command -v fish >/dev/null 2>&1; then
   fish_dir="${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d"
   fish_config="$fish_dir/sample-test-runner.fish"
+  fish_source="$install_dir/integrations/fish/sample-test-runner.fish"
   mkdir -p "$fish_dir"
-  if [[ -e "$fish_config" ]] && ! cmp -s "$fish_config" "$install_dir/integrations/fish/sample-test-runner.fish"; then
+  if [[ -L "$fish_config" && "$(readlink "$fish_config")" == "$fish_source" ]]; then
+    :
+  elif [[ -e "$fish_config" || -L "$fish_config" ]] && ! cmp -s "$fish_config" "$fish_source"; then
     echo "Existing fish integration kept: $fish_config"
   else
-    cp "$install_dir/integrations/fish/sample-test-runner.fish" "$fish_config"
+    rm -f "$fish_config"
+    ln -s "$fish_source" "$fish_config"
   fi
+  printf 'Reload fish integration: source %q\n' "$fish_config"
 fi
