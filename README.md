@@ -67,7 +67,10 @@ CredentialsをRepositoryに保存しない。保存先の既定は `~/workspace/
 `SAMPLE_TEST_RUNNER_ROOT` で変更できる。fishでは取得成功後に生成されたWorkspaceへ移動する。
 生成先は `~/.local/state/sample-test-runner/workspace` に保存する。
 
-AtCoderはTask一覧に掲載されたURLを使う。取得失敗はErrorとして終了し、無限Retryしない。
+AtCoderはTask一覧に掲載されたURLを使い、2秒間隔で順にSampleをDownloadする。
+HTTP 429では最大5回Retryし、待機時間は10・20・40・60・60秒。
+`Retry-After`（秒数またはHTTP-date）がそれより長い場合は、その指定時間以上待機する。
+Retry回数と待機時間をTerminalへ表示し、上限到達や403・404ではErrorとして終了する。
 fishからABC086 AのSample取得と実行を確認した。最終確認時にAtCoderがHTTP 403を返したため、
 Contest全体のLive取得は未確認。取得後のDirectory移動はIntegration testで確認した。
 CodeForces側の現在のLogin/Scraping動作は未検証。
@@ -78,7 +81,8 @@ CodeForces側の現在のLogin/Scraping動作は未検証。
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-17 Test casesでProblem ID、空白を含むAbsolute Path、Flat Source構成、Wrong answer、Compile error、Sample不足に加え、
+23 Test casesでProblem ID、空白を含むAbsolute Path、Flat Source構成、Wrong answer、Compile error、Sample不足に加え、
 fishからの設定値の受け渡し、取得後のDirectory移動、失敗時のExit code保持、AtCoderの実際のTask URLを使う処理を確認する。
+429後の復旧、Retry上限、`Retry-After` の秒数・HTTP-date・不正値、逐次Downloadの待機も検証する。
 fishがない環境ではfish専用の5件をSkipする。
 Nvimの実際のKeymap入力から、[AtCoder ABC086 A](https://atcoder.jp/contests/abc086/tasks/abc086_a)の公式Sample 2個を実行して通過した。

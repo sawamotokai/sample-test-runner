@@ -4,6 +4,8 @@ import time
 import requests
 import concurrent.futures
 import re
+from datetime import timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 from bs4 import BeautifulSoup
@@ -49,12 +51,40 @@ class AtCoderParser(Parser):
         self.password = password
         self.session = requests.Session()
 
+    def fetch_page(self, url, session=None):
+        client = self.session if session is None else session
+        retry_limit = 5
+        for attempt in range(retry_limit + 1):
+            page = client.get(url, timeout=30)
+            if page.status_code != 429 or attempt == retry_limit:
+                page.raise_for_status()
+                return page
+
+            delay = min(10 * 2 ** attempt, 60)
+            retry_after = page.headers.get("Retry-After", "").strip()
+            if retry_after:
+                try:
+                    if retry_after.isdigit():
+                        server_delay = int(retry_after)
+                    else:
+                        retry_at = parsedate_to_datetime(retry_after)
+                        if retry_at.tzinfo is None:
+                            retry_at = retry_at.replace(tzinfo=timezone.utc)
+                        server_delay = retry_at.timestamp() - time.time()
+                    delay = max(delay, server_delay)
+                except (TypeError, ValueError, OverflowError):
+                    pass
+            print(
+                f"HTTP 429: retry {attempt + 1}/{retry_limit} in {delay:g}s: {url}",
+                file=sys.stderr, flush=True,
+            )
+            time.sleep(delay)
+
     # returns a logged in session
     def login(self):
         URL = 'https://atcoder.jp/login?continue=https%3A%2F%2Fatcoder.jp%2F'
         client = requests.Session()
-        r1 = client.get(URL, timeout=30)
-        r1.raise_for_status()
+        r1 = self.fetch_page(URL, session=client)
         soup = BeautifulSoup(r1.content, features="lxml")
         t = soup.find('input', {'name': 'csrf_token'})
         if t is None:
@@ -72,8 +102,7 @@ class AtCoderParser(Parser):
         return client
 
     def parseProblem(self, label, problem_url):
-        page = self.session.get(problem_url, timeout=30)
-        page.raise_for_status()
+        page = self.fetch_page(problem_url)
         soup = BeautifulSoup(page.content, features="lxml")
         language = soup.select_one(".lang-en") or soup.select_one(".lang-ja") or soup
         inputs, outputs = {}, {}
@@ -121,20 +150,18 @@ class AtCoderParser(Parser):
         self.contestURL = f"https://atcoder.jp/contests/{self.contestName}/tasks"
         self.folderName = f"{rootPath}/{atCoder}/{contest.upper()}/{code}"
         problems = self.fetch_problems()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [executor.submit(self.parseProblem, label, url) for label, url in problems]
-            # Reading each result propagates failed downloads to the CLI.
-            for future in concurrent.futures.as_completed(futures):
-                future.result()
+        # Concurrent downloads keep hitting the rate limit while another request backs off.
+        for label, url in problems:
+            time.sleep(2)
+            self.parseProblem(label, url)
 
     def fetch_problems(self):
-        page = self.session.get(self.contestURL, timeout=30)
+        page = self.fetch_page(self.contestURL)
         if urlsplit(page.url or "").path == "/login":
             if not self.username or not self.password:
                 raise ValueError("This contest requires ATCODER_USERNAME and ATCODER_PASSWORD")
             self.session = self.login()
-            page = self.session.get(self.contestURL, timeout=30)
-        page.raise_for_status()
+            page = self.fetch_page(self.contestURL)
         soup = BeautifulSoup(page.content, features="lxml")
         problems = [
             (link.get_text(strip=True).upper(), urljoin(self.contestURL, link["href"]))

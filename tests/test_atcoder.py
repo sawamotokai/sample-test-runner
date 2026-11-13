@@ -1,8 +1,9 @@
 import sys
 import tempfile
 import unittest
+from email.utils import formatdate
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 import requests
 
@@ -51,7 +52,9 @@ class AtCoderTests(unittest.TestCase):
         self.addCleanup(self.workspace.cleanup)
         self.parser = parse.AtCoderParser.__new__(parse.AtCoderParser)
         self.parser.session = Mock()
+        self.sleep = self.enterContext(patch.object(parse.time, "sleep"))
         self.contest = Path(self.workspace.name) / "AtCoder" / "ABC" / "086"
+        self.parser.folderName = str(self.contest)
         # Existing solutions must survive fetching samples again.
         for label in ("A", "B", "C"):
             directory = self.contest / label
@@ -79,6 +82,53 @@ class AtCoderTests(unittest.TestCase):
             self.assertEqual((directory / "2.out").read_text(), "Odd\n")
             self.assertEqual(len(list(directory.glob("*.in"))), 2)
             self.assertEqual((directory / f"{label}.cpp").read_text(), "existing solution\n")
+        self.assertEqual(self.sleep.call_args_list, [call(2), call(2)])
+
+    def test_rate_limit_waits_then_downloads_samples(self):
+        self.parser.session.get.side_effect = [response("", 429), response("", 429), response(SAMPLES)]
+        self.parser.parseProblem("A", "https://atcoder.jp/contests/abc483/tasks/abc483_a")
+        self.assertEqual(self.parser.session.get.call_count, 3)
+        self.assertEqual(self.sleep.call_args_list, [call(10), call(20)])
+        self.assertEqual((self.contest / "A" / "1.in").read_text(), "3 4\n")
+
+    def test_retry_after_seconds_and_http_date_are_respected(self):
+        now = 1700000000
+        for retry_after in ("90", formatdate(now + 90, usegmt=True)):
+            with self.subTest(retry_after=retry_after):
+                limited = response("", 429)
+                limited.headers["Retry-After"] = retry_after
+                self.parser.session.get.side_effect = [limited, response(SAMPLES)]
+                self.sleep.reset_mock()
+                with patch.object(parse.time, "time", return_value=now):
+                    self.parser.parseProblem("A", "https://atcoder.jp/contests/abc483/tasks/abc483_a")
+                self.sleep.assert_called_once_with(90)
+
+    def test_invalid_retry_after_uses_default_delay(self):
+        limited = response("", 429)
+        limited.headers["Retry-After"] = "invalid"
+        self.parser.session.get.side_effect = [limited, response(SAMPLES)]
+        self.parser.parseProblem("A", "https://atcoder.jp/contests/abc483/tasks/abc483_a")
+        self.sleep.assert_called_once_with(10)
+
+    def test_repeated_rate_limit_stops_after_five_retries(self):
+        self.parser.session.get.return_value = response("", 429)
+        with self.assertRaises(requests.HTTPError):
+            self.parser.parseProblem("A", "https://atcoder.jp/contests/abc483/tasks/abc483_a")
+        self.assertEqual(self.parser.session.get.call_count, 6)
+        self.assertEqual(self.sleep.call_args_list, [call(10), call(20), call(40), call(60), call(60)])
+
+    def test_contest_list_rate_limit_is_retried(self):
+        self.parser.contestURL = "https://atcoder.jp/contests/abc483/tasks"
+        self.parser.session.get.side_effect = [response("", 429), response(TASKS)]
+        self.assertEqual(len(self.parser.fetch_problems()), 2)
+        self.sleep.assert_called_once_with(10)
+
+    def test_forbidden_response_is_not_retried(self):
+        self.parser.session.get.return_value = response("", 403)
+        with self.assertRaises(requests.HTTPError):
+            self.parser.parseProblem("A", "https://atcoder.jp/contests/abc483/tasks/abc483_a")
+        self.assertEqual(self.parser.session.get.call_count, 1)
+        self.sleep.assert_not_called()
 
     def test_http_error_stops_instead_of_retrying_forever(self):
         self.parser.session.get.side_effect = lambda url, **kwargs: response(TASKS if url.endswith('/tasks') else '<html>Missing</html>', 200 if url.endswith('/tasks') else 404)
