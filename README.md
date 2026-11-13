@@ -7,7 +7,7 @@ AtCoder・CodeForcesのSampleを取得し、C++の解答をCompileして比較�
 
 ```sh
 brew install uv gcc
-git clone https://github.com/sawamotokai/sample-test-runner.git ~/.local/share/sample-test-runner
+git clone --branch codex/macos-install https://github.com/sawamotokai/sample-test-runner.git ~/.local/share/sample-test-runner
 cd ~/.local/share/sample-test-runner
 bash install.sh
 ```
@@ -22,7 +22,7 @@ source ~/.config/fish/conf.d/sample-test-runner.fish
 ```
 
 独自に編集された同名のfish設定がある場合、Installerは上書きせず通知する。
-GitHubへのpush前は、このMacにあるLocal Branchを利用する。
+macOS・fish向けの変更は `codex/macos-install` Branchで管理する。
 
 ## Sampleの実行
 
