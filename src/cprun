@@ -1,72 +1,91 @@
 #!/bin/bash
-problem=$(echo $1 | tr '[:lower:]' '[:upper:]')
-numFiles=$(shopt -s nullglob; files=($(pwd)/$problem/*.in); echo ${#files[@]};)
+set -uo pipefail
+shopt -s nullglob
 
-RED='\033[0;31m'
-GREEN='\033[0;032m'
-ORANGE='\033[0;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-UNDERLINE='\e[4m'
-
-if [[ $numFiles -eq 0 ]]; then
-	echo "No input files."
-  echo "Specify the problem id."
-  echo "Example: cprun c"
-	exit
+if [[ $# -ne 1 || "$1" == --help || "$1" == -h ]]; then
+  echo 'Usage: cprun <problem-id | path/to/solution.cpp>'
+  echo 'Samples: <problem-id>/*.in and *.out, or beside the C++ source.'
+  [[ $# -eq 1 && ( "$1" == --help || "$1" == -h ) ]] && exit 0
+  exit 2
 fi
 
-function check_error() {
-    if [ $? -ne 0 ]; then
-        echo -e "$(basename $0): $1"
-        exit -1
-    fi
-}
-
-
-fla=0
-g++ -std=c++17 -Wall -fsanitize=undefined -O2 $(pwd)/$problem/$problem.cpp || fla=1
-if [ $fla -eq 1 ]
-then
-	echo -e "${RED}✘ Compilation Error${NC}"
-	exit
-fi
-
-tempOutputFile=$(pwd)/$problem/tmp.txt
-correct=0
-for ((i = 1 ; i <= $numFiles ; i++)); do
-	inputTextFile=$(pwd)/$problem/$i.in
-	outputTextFile=$(pwd)/$problem/$i.out
-	true > $tempOutputFile
-	./a.out < $inputTextFile > $tempOutputFile
-	check_error "Failure occurred while running output file!"
-
-	# Checking diff between the files
-	diffOutput=$(diff $outputTextFile $tempOutputFile)
-	diffLines=$(echo "$diffOutput" | wc -l)
-	if [ $diffLines -gt 1 ]; then
-		echo -e "${RED}✘ Failed sample $i!${NC}"
-		echo -e "--------------------\n>> Input:"
-		cat $inputTextFile
-		echo -e "--------------------\n>> Output:"
-		cat $tempOutputFile
-		echo -e "--------------------\n>> Expected:"
-		cat $outputTextFile
-		echo -e "--------------------\n"
-	else
-		echo -e "${GREEN}✓ Passed sample $i!${NC}"
-		correct=`expr $correct + 1`
-	fi
-done
-rm $tempOutputFile
-
-color=
-icon=
-if [[ $correct -eq $numFiles ]]; then
-	color=$GREEN
-	icon="✓"
+if [[ "$1" == *.cpp ]]; then
+  if [[ ! -f "$1" ]]; then
+    echo "Source file not found: $1" >&2
+    exit 2
+  fi
+  source_dir=$(cd "$(dirname "$1")" && pwd)
+  source_file="$source_dir/$(basename "$1")"
+  problem=$(basename "$1" .cpp | tr '[:lower:]' '[:upper:]')
+  inputs=("$source_dir"/*.in)
+  if [[ ${#inputs[@]} -gt 0 ]]; then
+    sample_dir="$source_dir"
+  else
+    sample_dir="$source_dir/$problem"
+  fi
 else
-	color=$RED
-	icon="✘"
+  problem=$(printf '%s' "$1" | tr '[:lower:]' '[:upper:]')
+  sample_dir="$PWD/$problem"
+  source_file="$sample_dir/$problem.cpp"
 fi
-echo -e "\n\n${color}${icon} Passed [$correct/$numFiles] tests${NC}"
+
+inputs=("$sample_dir"/*.in)
+if [[ ${#inputs[@]} -eq 0 ]]; then
+  echo "No input files in: $sample_dir" >&2
+  exit 2
+fi
+if [[ ! -f "$source_file" ]]; then
+  echo "Source file not found: $source_file" >&2
+  exit 2
+fi
+
+compiler=${CXX:-}
+if [[ -z "$compiler" ]]; then
+  # Apple clang's g++ alias lacks the bits/stdc++.h used by these snippets.
+  for candidate in /opt/homebrew/bin/g++-[0-9]* /usr/local/bin/g++-[0-9]*; do
+    [[ -x "$candidate" ]] && compiler="$candidate"
+  done
+  compiler=${compiler:-g++}
+fi
+if ! command -v "$compiler" >/dev/null 2>&1; then
+  echo "C++ compiler not found: $compiler" >&2
+  exit 2
+fi
+
+build_dir=$(mktemp -d "${TMPDIR:-/tmp}/cprun.XXXXXX") || exit 2
+trap 'rm -rf "$build_dir"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if ! "$compiler" -std=c++17 -Wall -fsanitize=undefined -O2 "$source_file" -o "$build_dir/solution"; then
+  printf '\033[0;31m✘ Compilation Error\033[0m\n'
+  exit 1
+fi
+
+correct=0
+for input_file in "${inputs[@]}"; do
+  expected_file="${input_file%.in}.out"
+  sample=$(basename "$input_file" .in)
+  if [[ ! -f "$expected_file" ]]; then
+    printf '✘ Missing expected output for sample %s\n' "$sample"
+    continue
+  fi
+  if ! "$build_dir/solution" < "$input_file" > "$build_dir/output"; then
+    printf '\033[0;31m✘ Runtime Error in sample %s\033[0m\n' "$sample"
+    continue
+  fi
+  if diff -u "$expected_file" "$build_dir/output" > "$build_dir/diff"; then
+    printf '\033[0;32m✓ Passed sample %s!\033[0m\n' "$sample"
+    correct=$((correct + 1))
+  else
+    printf '\033[0;31m✘ Failed sample %s!\033[0m\n' "$sample"
+    cat "$build_dir/diff"
+  fi
+done
+
+if [[ "$correct" -eq "${#inputs[@]}" ]]; then
+  printf '\n\033[0;32m✓ Passed [%s/%s] tests\033[0m\n' "$correct" "${#inputs[@]}"
+  exit 0
+fi
+printf '\n\033[0;31m✘ Passed [%s/%s] tests\033[0m\n' "$correct" "${#inputs[@]}"
+exit 1

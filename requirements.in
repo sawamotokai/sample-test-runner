@@ -1,0 +1,5 @@
+beautifulsoup4>=4.12,<5
+colorama>=0.4.6,<0.5
+inquirer>=3,<4
+lxml>=5,<7
+requests>=2.32,<3
