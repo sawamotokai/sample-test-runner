@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import requests
 import concurrent.futures
@@ -75,7 +76,7 @@ class AtCoderParser(Parser):
             problemURL = f"{self.contestURL}/{self.contestName}_{problemChar}"
             page = self.session.get(problemURL)
             soup = BeautifulSoup(page.content, features="lxml")
-            rows = list(filter(lambda tag: tag.contents[0].name != "var", soup.findAll("pre")))
+            rows = list(filter(lambda tag: tag.contents[0].name != "var", soup.find_all("pre")))
             rows = rows[:len(rows) // 2]
             rows = [tag.text.split("\r\n") for tag in rows]
             for i in range(len(rows) // 2):
@@ -136,7 +137,7 @@ class AtCoderParser(Parser):
         while True:
             page = self.session.get(URL)
             soup = BeautifulSoup(page.content, features="lxml")
-            rows = soup.findAll("tr")
+            rows = soup.find_all("tr")
             ln = len(rows)
             if ln == 0:
                 print((Fore.RED + "Failed to connect!"))
@@ -163,7 +164,7 @@ class CodeForcesParser(Parser):
             self.folderName = f"{rootPath}/{codeForces}/{self.code}"
             page = self.session.get(url)
             soup = BeautifulSoup(page.content, features="lxml")
-            PRE = soup.findAll("pre")
+            PRE = soup.find_all("pre")
             L = len(PRE)
             inde = 1
             skipped = 0
@@ -245,7 +246,7 @@ class CodeForcesParser(Parser):
             url = codeForcesURL + str(self.code)
             page = self.session.get(url)
             soup = BeautifulSoup(page.content, features="lxml")
-            sz = soup.findAll(title="Submit")
+            sz = soup.find_all(title="Submit")
             if len(sz) == 0:
                 print((Fore.RED + "Failed to connect!"))
                 print(Fore.WHITE + "Trying again...")
@@ -253,7 +254,7 @@ class CodeForcesParser(Parser):
                 continue
 
             ch = []
-            for p in soup.findAll("td", attrs={"class": "id"}):
+            for p in soup.find_all("td", attrs={"class": "id"}):
                 for s in p.find("a").stripped_strings:
                     ch.append(s)
             break
@@ -273,7 +274,7 @@ codeforces_username = os.getenv('CODEFORCES_USERNAME', default="")
 codeforces_password = os.getenv('CODEFORCES_PASSWORD', default="")
 
 ## path constants i.e., {rootPath}/{atCoder}/<ABC | ARC | AGC>/<contest code>
-rootPath = f"{os.environ['HOME']}/workspace/competitive-programming"
+rootPath = os.path.expanduser(os.getenv("SAMPLE_TEST_RUNNER_ROOT", "~/workspace/competitive-programming"))
 atCoder = 'AtCoder'
 atCoder_abc = 'ABC'
 atCoder_arc = 'ARC'
@@ -314,30 +315,38 @@ def touch(fname):
 class Ask():
     @staticmethod
     def text(message):
-        return inquirer.prompt(
+        answers = inquirer.prompt(
             questions=[
                 inquirer.Text('ans',
                 message=message)],
-            theme=GreenPassion())['ans']
+            theme=GreenPassion())
+        if answers is None:
+            raise KeyboardInterrupt
+        return answers['ans']
 
     @staticmethod
     def list_input(message, choices):
-        return inquirer.prompt(
+        answers = inquirer.prompt(
             questions=[
                 inquirer.List('ans',
                 message=message,
                 choices=choices)],
-            theme=GreenPassion())['ans']
+            theme=GreenPassion())
+        if answers is None:
+            raise KeyboardInterrupt
+        return answers['ans']
 
 ## END UTIL ##################################################
 ##############################################################
 
 if __name__ == '__main__':
-    parser = ParserFactory.get()
-    parser.parse()
-    dirPath=f"/tmp/sample-test-runner-pwd.txt"
-    print(f"Workspace has been created under {parser.folderName}")
-    os.makedirs(os.path.dirname(dirPath), exist_ok=True)
-    with open(dirPath, 'w') as f:
-        f.write(parser.folderName)
-
+    try:
+        parser = ParserFactory.get()
+        parser.parse()
+        dirPath = os.path.join(os.getenv("XDG_STATE_HOME", os.path.expanduser("~/.local/state")), "sample-test-runner", "workspace")
+        print(f"Workspace has been created under {parser.folderName}")
+        os.makedirs(os.path.dirname(dirPath), exist_ok=True)
+        with open(dirPath, 'w') as f:
+            f.write(parser.folderName)
+    except KeyboardInterrupt:
+        sys.exit(130)
