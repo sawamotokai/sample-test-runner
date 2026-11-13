@@ -37,7 +37,7 @@ C++17・UBSan・O2でCompileする。Binaryと実行結果はTemporary Directory
 ## Nvim
 
 NvChad Customの `Space d r` で、現在の `.cpp` Fileを保存してTerminal Split内でSampleを実行する。
-`Space d R` はDAP用。実装は `~/.config/nvim/lua/configs/runner.lua`。
+実装は `~/.config/nvim/lua/configs/runner.lua`。
 
 ## Sampleの取得
 
